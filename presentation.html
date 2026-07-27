@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ITRI671 — Implementation Plan</title>
+<style>
+  :root{
+    --asphalt:#12151c; --panel:#1b212c; --panel2:#232b38;
+    --ink:#e9ecf1; --dim:#9aa4b2; --line:#374253;
+    --amber:#f5b301; --go:#2fbf71; --stop:#e8503a; --sky:#5aa0e6;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%; background:#000; overflow:hidden; font-family:"Segoe UI",Arial,Helvetica,sans-serif;}
+  #wrap{position:fixed; inset:0; display:flex; align-items:center; justify-content:center;}
+  #stage{width:1280px; height:720px; position:relative; transform-origin:center center;}
+  .slide{position:absolute; inset:0; background:var(--asphalt); color:var(--ink);
+    padding:56px 64px; display:none; flex-direction:column;}
+  .slide.active{display:flex;}
+
+  /* header motif: three signal dots + kicker */
+  .head{display:flex; align-items:center; gap:14px; margin-bottom:22px;}
+  .signal{display:flex; gap:6px;}
+  .signal i{width:11px; height:11px; border-radius:50%; display:block; opacity:.30;}
+  .signal .r{background:var(--stop);} .signal .a{background:var(--amber);} .signal .g{background:var(--go);}
+  .signal.on-r .r,.signal.on-a .a,.signal.on-g .g{opacity:1;}
+  .kicker{font-size:15px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim);}
+
+  h1{font-size:44px; line-height:1.08; font-weight:800; letter-spacing:-.01em;}
+  h2{font-size:38px; line-height:1.1; font-weight:800; letter-spacing:-.01em;}
+  .lead{font-size:20px; color:var(--ink);}
+  .muted{color:var(--dim);}
+  .rq{font-style:italic; color:var(--amber); font-size:20px; line-height:1.35;}
+
+  .body{flex:1; display:flex; gap:40px; align-items:center;}
+  .col{flex:1; display:flex; flex-direction:column; gap:16px;}
+
+  /* screenshot slots */
+  .shot{position:relative; width:100%; border:2px dashed var(--line); border-radius:12px;
+    background:var(--panel); overflow:hidden; display:flex; align-items:center; justify-content:center;}
+  .shot img{width:100%; height:100%; object-fit:cover; display:block;}
+  .shot .ph{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:6px; color:var(--dim); text-align:center; padding:16px;}
+  .shot .ph b{color:var(--ink); font-size:16px;} .shot .ph span{font-size:13px;}
+
+  /* generic card */
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:20px;}
+  .cards3{display:flex; gap:20px; width:100%;}
+  .cards3 .card{flex:1; display:flex; flex-direction:column; gap:12px;}
+  .badge{display:inline-flex; align-items:center; gap:8px; font-size:13px; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--dim);}
+  .dot{width:12px;height:12px;border-radius:50%;display:inline-block;}
+  .card h3{font-size:21px; font-weight:700;}
+  .card p{font-size:15px; color:var(--dim); line-height:1.4;}
+
+  /* mini corridor glyph */
+  .corridor{display:flex; align-items:center; gap:8px; margin:4px 0;}
+  .node{width:20px;height:20px;border-radius:50%;background:var(--line);flex:none;}
+  .node.sq{border-radius:4px;}
+  .node.sig{background:var(--sky);} .node.stopn{background:#cfd6e0;} .node.hot{outline:3px solid var(--amber); outline-offset:2px;}
+  .seg{height:3px;flex:1;background:var(--line);border-radius:2px;min-width:14px;}
+
+  .tagstrip{display:flex; flex-wrap:wrap; gap:10px; margin-top:20px;}
+  .tag{background:var(--panel2); border:1px solid var(--line); color:var(--ink);
+    padding:8px 14px; border-radius:999px; font-size:14px;}
+
+  /* architecture */
+  .engine{border:2px solid var(--line); border-radius:16px; padding:22px; background:var(--panel);}
+  .engine .lab{font-size:13px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); margin-bottom:14px;}
+  .chips{display:flex; gap:14px;}
+  .chip{flex:1; background:var(--panel2); border:1px solid var(--line); border-radius:12px;
+    padding:16px 12px; text-align:center;}
+  .chip b{font-size:18px;} .chip small{display:block; color:var(--dim); font-size:12px; margin-top:5px;}
+  .chip.hot{border-color:var(--amber); box-shadow:0 0 0 1px var(--amber) inset;}
+  .flowdown{display:flex; justify-content:center; color:var(--dim); font-size:22px; margin:10px 0;}
+  .outs{display:flex; gap:16px;}
+  .out{flex:1; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px;}
+  .out b{font-size:16px;} .out small{display:block; color:var(--dim); font-size:12.5px; margin-top:3px;}
+  .callout{background:rgba(245,179,1,.10); border:1px solid var(--amber); border-radius:12px;
+    padding:14px 16px; font-size:15px; color:var(--ink);}
+  .callout b{color:var(--amber);}
+
+  /* timeline */
+  .timeline{display:flex; align-items:flex-start; gap:0; width:100%; margin-top:8px;}
+  .step{flex:1; position:relative; text-align:center; padding-top:26px;}
+  .step::before{content:""; position:absolute; top:8px; left:50%; width:100%; height:3px;
+    background:var(--line); transform:translateX(0);}
+  .step:last-child::before{display:none;}
+  .step i{position:absolute; top:2px; left:50%; transform:translateX(-50%); width:15px;height:15px;
+    border-radius:50%; background:var(--line); border:2px solid var(--asphalt);}
+  .step.now i{background:var(--amber);} .step.now b{color:var(--amber);}
+  .step b{font-size:13px; display:block;} .step small{font-size:11px; color:var(--dim);}
+
+  .foot{display:flex; justify-content:space-between; align-items:center; margin-top:18px;}
+  .note{font-size:14px; color:var(--dim);}
+
+  /* nav */
+  #hint{position:fixed; bottom:12px; left:12px; color:#4a5666; font-size:12px; z-index:10;}
+  #counter{position:fixed; bottom:12px; right:14px; color:#4a5666; font-size:12px; z-index:10;}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage">
+
+  <!-- SLIDE 1 — PROBLEM + AIM -->
+  <section class="slide active">
+    <div class="head"><span class="signal on-r"><i class="r"></i><i class="a"></i><i class="g"></i></span>
+      <span class="kicker">ITRI671 · Implementation plan · O. J. Sithole</span></div>
+    <div class="body">
+      <div class="col">
+        <h1>Designing a microsimulation for corridor traffic control</h1>
+        <p class="lead muted">The NWU main-gate four-way stop congests at peak — long queues, unpredictable delays, late arrivals.</p>
+        <p class="lead">Aim: a low-cost, open-source microsimulation to test control alternatives <span class="muted">without touching the real road.</span></p>
+        <p class="rq">&ldquo;How to design a microsimulation for analysing traffic control alternatives along a corridor on a small scale?&rdquo;</p>
+      </div>
+      <div class="col" style="flex:.9">
+        <div class="shot" style="aspect-ratio:4/3">
+          <img src="corridor_map.png" alt="" onerror="this.style.display='none'">
+          <div class="ph"><b>corridor_map.png</b><span>Drop your Figure 2 corridor map here</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 2 — THREE SCENARIOS -->
+  <section class="slide">
+    <div class="head"><span class="signal on-a"><i class="r"></i><i class="a"></i><i class="g"></i></span>
+      <span class="kicker">What I'm building</span></div>
+    <h2>One corridor, three controls</h2>
+    <p class="lead muted" style="margin:10px 0 20px">Same road, same traffic — <span style="color:var(--amber)">only the control at the main gate changes.</span></p>
+    <div class="body" style="align-items:stretch">
+      <div class="cards3">
+        <div class="card">
+          <span class="badge"><span class="dot" style="background:#cfd6e0"></span>Scenario 1 · Baseline</span>
+          <div class="corridor"><span class="node sig"></span><span class="seg"></span><span class="node sq stopn"></span><span class="seg"></span><span class="node sig"></span><span class="seg"></span><span class="node sq stopn hot"></span></div>
+          <h3>Unsignalised four-way stop</h3>
+          <p>Today's reality: first-come-first-served priority rules.</p>
+        </div>
+        <div class="card">
+          <span class="badge"><span class="dot" style="background:var(--sky)"></span>Scenario 2 · Isolated</span>
+          <div class="corridor"><span class="node sig"></span><span class="seg"></span><span class="node sq stopn"></span><span class="seg"></span><span class="node sig"></span><span class="seg"></span><span class="node sig hot"></span></div>
+          <h3>Single fixed-time signal</h3>
+          <p>Replace the stop with one isolated traffic light.</p>
+        </div>
+        <div class="card">
+          <span class="badge"><span class="dot" style="background:var(--go)"></span>Scenario 3 · Coordinated</span>
+          <div class="corridor"><span class="node sig hot"></span><span class="seg" style="background:var(--go)"></span><span class="node sq stopn"></span><span class="seg" style="background:var(--go)"></span><span class="node sig hot"></span><span class="seg" style="background:var(--go)"></span><span class="node sig hot"></span></div>
+          <h3>Coordinated signal network</h3>
+          <p>Linked signals sharing offsets — a green wave.</p>
+        </div>
+      </div>
+    </div>
+    <div class="tagstrip">
+      <span class="tag">Custom microscopic simulation</span>
+      <span class="tag">Python + Pygame</span>
+      <span class="tag">Synthetic data</span>
+      <span class="tag">Design Science Research</span>
+    </div>
+  </section>
+
+  <!-- SLIDE 3 — ARCHITECTURE -->
+  <section class="slide">
+    <div class="head"><span class="signal on-a"><i class="r"></i><i class="a"></i><i class="g"></i></span>
+      <span class="kicker">How it's built</span></div>
+    <h2>Four components, one swappable control</h2>
+    <div class="body" style="gap:32px">
+      <div class="col" style="flex:1.4">
+        <div class="engine">
+          <div class="lab">Simulation engine · time-stepped loop · seeded RNG</div>
+          <div class="chips">
+            <div class="chip"><b>Network</b><small>roads, spacing</small></div>
+            <div class="chip"><b>Vehicle</b><small>car-following</small></div>
+            <div class="chip hot"><b>Control</b><small>stop / signal / offsets</small></div>
+            <div class="chip"><b>Output</b><small>delay, queues</small></div>
+          </div>
+          <div class="flowdown">&darr;</div>
+          <div class="outs">
+            <div class="out"><b>Watch</b><small>Pygame viewer</small></div>
+            <div class="out"><b>Measure</b><small>CSV · headless · batch</small></div>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="callout"><b>Only Control swaps</b> across scenarios &rarr; identical road &amp; traffic, fair comparison.</div>
+        <div class="callout"><b>Headless engine</b> &rarr; fast, repeatable runs (reliability + performance).</div>
+        <p class="note">Microscopic model (individual vehicles) · IDM car-following (Treiber &amp; Kesting) · fixed-time signals (simple, comparable).</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 4 — DEMO PROOF -->
+  <section class="slide">
+    <div class="head"><span class="signal on-g"><i class="r"></i><i class="a"></i><i class="g"></i></span>
+      <span class="kicker">Proof it's underway</span></div>
+    <h2>The queuing core, already working</h2>
+    <div class="body" style="gap:26px; align-items:stretch">
+      <div class="col">
+        <div class="shot" style="flex:1">
+          <img src="demo_stable.png" alt="" onerror="this.style.display='none'">
+          <div class="ph"><b>demo_stable.png</b><span>Demo at &rho; &lt; 1 — short, steady queues</span></div>
+        </div>
+        <span class="badge"><span class="dot" style="background:var(--go)"></span>Stable &nbsp;·&nbsp; &rho; &lt; 1</span>
+      </div>
+      <div class="col">
+        <div class="shot" style="flex:1">
+          <img src="demo_saturated.png" alt="" onerror="this.style.display='none'">
+          <div class="ph"><b>demo_saturated.png</b><span>Demo at &rho; &ge; 1 — queue grows unbounded</span></div>
+        </div>
+        <span class="badge"><span class="dot" style="background:var(--stop)"></span>Over-saturated &nbsp;·&nbsp; &rho; &ge; 1</span>
+      </div>
+    </div>
+    <p class="note" style="margin-top:16px">A four-way stop = four queues, one server. As &rho; &rarr; 1, the queue &rarr; &infin; (Garber &amp; Hoel). The full artifact adds car-following, real geometry, and the swappable control.</p>
+  </section>
+
+  <!-- SLIDE 5 — ROADMAP -->
+  <section class="slide">
+    <div class="head"><span class="signal on-g"><i class="r"></i><i class="a"></i><i class="g"></i></span>
+      <span class="kicker">The road ahead</span></div>
+    <h2>From queuing demo to full comparison</h2>
+    <div class="body" style="flex-direction:column; justify-content:center; gap:30px">
+      <div class="timeline">
+        <div class="step now"><i></i><b>Engine</b><small>config + loop</small></div>
+        <div class="step"><i></i><b>Network</b><small>corridor</small></div>
+        <div class="step"><i></i><b>Vehicle</b><small>IDM</small></div>
+        <div class="step"><i></i><b>Output</b><small>metrics</small></div>
+        <div class="step"><i></i><b>Stop</b><small>baseline</small></div>
+        <div class="step"><i></i><b>Signal</b><small>isolated</small></div>
+        <div class="step"><i></i><b>Coord.</b><small>green wave</small></div>
+        <div class="step"><i></i><b>Analyse</b><small>compare</small></div>
+      </div>
+      <div class="callout" style="align-self:flex-start">Confirming with supervisor: exact corridor spacing &amp; which intersection to signalise first.</div>
+    </div>
+    <div class="foot">
+      <span class="note">Deliverable: a low-cost, open-source artifact + comparison of the three controls.</span>
+      <span class="note">Owethu Jazmene Sithole · 41380525</span>
+    </div>
+  </section>
+
+</div></div>
+
+<div id="hint">&larr; &rarr; or Space to navigate · F for fullscreen</div>
+<div id="counter"></div>
+
+<script>
+  var slides = document.querySelectorAll('.slide');
+  var i = 0;
+  function show(n){
+    i = Math.max(0, Math.min(slides.length-1, n));
+    slides.forEach(function(s,k){ s.classList.toggle('active', k===i); });
+    document.getElementById('counter').textContent = (i+1)+' / '+slides.length;
+  }
+  function fit(){
+    var s = Math.min(window.innerWidth/1280, window.innerHeight/720);
+    document.getElementById('stage').style.transform = 'scale('+s+')';
+  }
+  document.addEventListener('keydown', function(e){
+    if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'){ e.preventDefault(); show(i+1); }
+    else if(e.key==='ArrowLeft'||e.key==='PageUp'){ e.preventDefault(); show(i-1); }
+    else if(e.key==='Home'){ show(0); } else if(e.key==='End'){ show(slides.length-1); }
+    else if(e.key==='f'||e.key==='F'){
+      if(!document.fullscreenElement){ document.documentElement.requestFullscreen(); }
+      else { document.exitFullscreen(); }
+    }
+  });
+  window.addEventListener('resize', fit);
+  document.addEventListener('click', function(e){ if(e.clientX > window.innerWidth*0.5) show(i+1); else show(i-1); });
+  fit(); show(0);
+</script>
+</body>
+</html>
