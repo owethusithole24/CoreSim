@@ -2,7 +2,7 @@
 
 There's no traffic yet — this just proves the loop and seeding work end to
 end before we build anything that depends on them (network, vehicles,
-control). Later steps will add --scenario / --headless / --seed flags here.
+control). Later steps will add scenario / headless / seed flags here.
 """
 
 from src.config import Config
