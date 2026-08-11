@@ -72,6 +72,23 @@ def nwu_corridor() -> NetworkConfig:
 
 
 @dataclass
+class IDMConfig:
+    """IDM behavioural parameters (architecture_design.md §6.2/§9), standard
+    literature values (Treiber & Kesting, 2010). Applied uniformly to every
+    vehicle for now — per-driver variation is calibration work, not yet in
+    scope (steps 8-9).
+    """
+
+    v0: float = 13.9     # desired (free-flow) speed, m/s (~50 km/h)
+    T: float = 1.5       # desired time headway, s
+    a_max: float = 1.0   # max acceleration, m/s^2
+    b: float = 1.5       # comfortable braking deceleration, m/s^2
+    s0: float = 2.0      # minimum standstill gap, m
+    delta: float = 4.0   # acceleration exponent
+    length: float = 5.0  # default vehicle length, m
+
+
+@dataclass
 class Config:
     # --- output/run family (architecture_design.md §9) ---
     dt: float = 0.1          # simulation time step, seconds
@@ -80,6 +97,9 @@ class Config:
 
     # --- network geometry family (§9) ---
     network: NetworkConfig = field(default_factory=nwu_corridor)
+
+    # --- vehicle behaviour / IDM family (§9) ---
+    idm: IDMConfig = field(default_factory=IDMConfig)
 
     # --- shared across all families: the one seed everything derives from (§8.1) ---
     seed: int = 42
